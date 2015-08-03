@@ -1,4 +1,5 @@
 from gi.repository import Clutter, GLib, GdkPixbuf, Cogl
+from multiprocessing import Process, Queue
 import logging
 import os
 import random
@@ -40,7 +41,7 @@ class Slideshow:
         self.texture = Clutter.Texture.new()
         self.next_texture = None
         self.prev_texture = None
-        self.next_data = None
+        self.data_queue = Queue()
 
         def quit(*args):
             Clutter.main_quit()
@@ -53,7 +54,7 @@ class Slideshow:
 
         self.will_enlarge = random.choice((True, False))
         self.prepare_next_data()
-        Clutter.threads_add_timeout(GLib.PRIORITY_HIGH_IDLE, 300, self.next, None)
+        Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, 300, self.next, None)
         self.stage.show()
 
         Clutter.main()
@@ -75,31 +76,35 @@ class Slideshow:
             self.prev_texture = self.texture
             self.texture = self.next_texture
 
-            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH_IDLE, INTERVAL, self.next, None)
+            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, INTERVAL, self.next, None)
             self.prepare_next_data()
         except:
             logging.exception('Oops:')
-            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH_IDLE, 100, self.next, None)
+            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, 100, self.next, None)
 
     def get_ratio_to_screen(self, texture):
         return max(self.stage.get_width() / texture.get_width(), self.stage.get_height() / texture.get_height())
 
     def prepare_next_data(self):
-        self.next_data = self.load_image_data(os.path.join(self.folder, random.choice(self.files)))
+        filename = os.path.join(self.folder, random.choice(self.files))
 
-    def load_image_data(self, filename):
-        pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
-        return (
-            pixbuf.get_pixels(),
-            pixbuf.get_has_alpha(),
-            pixbuf.get_width(),
-            pixbuf.get_height(),
-            pixbuf.get_rowstride(),
-            4 if pixbuf.get_has_alpha() else 3,
-            Clutter.TextureFlags.NONE)
+        def f(q, filename):
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
+            data = (
+                pixbuf.get_pixels(),
+                pixbuf.get_has_alpha(),
+                pixbuf.get_width(),
+                pixbuf.get_height(),
+                pixbuf.get_rowstride(),
+                4 if pixbuf.get_has_alpha() else 3)
+            q.put(data)
 
-    def create_texture(self, filename=None):
-        data = self.next_data if not filename else self.load_image_data(filename)
+        p = Process(target=f, args=(self.data_queue, filename))
+        p.daemon = True
+        p.start()
+
+    def create_texture(self):
+        data = tuple(self.data_queue.get()) + (Clutter.TextureFlags.NONE,)
         texture = Clutter.Texture.new()
         texture.set_from_rgb_data(*data)
         texture.set_opacity(0)
