@@ -1,34 +1,139 @@
 from gi.repository import Clutter, GLib, GdkPixbuf, Cogl
 from multiprocessing import Process, Queue
 import logging
+import optparse
 import os
 import random
 import sys
 import time
 
-# TODO use OptionParser to read input files and folders and interval setting
+IMAGE_TYPES = ('.jpg', '.jpeg', '.png', '.bmp')
 
-IMAGE_TYPES = ('.jpg', '.png', '.bmp')
-INTERVAL = 4000
-FADE_TIME = INTERVAL / 3
-ZOOM_FACTOR = 1.25
-PAN_FACTOR = 60
-SAFETY_ZOOM = 1.01
+SECONDS = 4
+FADE = 0.4
+ZOOM = 0.25
+PAN = 0.05
 
 random.seed(time.time())
 logging.basicConfig()
+
+
+def is_image(filename):
+    return os.path.isfile(filename) and filename.lower().endswith(IMAGE_TYPES)
+
 
 class Slideshow:
     def __init__(self):
         pass
 
-    def run(self):
-        if len(sys.argv) > 1:
-            self.folder = sys.argv[1]
-        else:
-            self.folder = '/usr/share/backgrounds'
+    def parse_options(self):
+        """Support for command line options"""
+        usage = """%prog [options] [list of images and/or image folders]
+Starts a slideshow using the given images and/or image folders"""
+        parser = optparse.OptionParser(usage=usage)
 
-        self.files = filter(lambda f: os.path.splitext(f)[1].lower() in IMAGE_TYPES, os.listdir(self.folder))
+        parser.add_option("-s", "--seconds", action="store", type="float", dest="seconds", default=SECONDS,
+                          help="Interval in seconds between image changes.\n"
+                               "Default is %s.\n"
+                               "Float, at least 0.1." % SECONDS)
+        parser.add_option("-f", "--fade", action="store", type="float", dest="fade", default=FADE,
+                          help="Fade duration, as a fraction of the interval.\n"
+                               "Default is 0.4, i.e. 0.4 * 4 = 1.6 seconds.\n"
+                               "Float, between 0 and 1.\n"
+                               "0 disables fade.")
+        parser.add_option("-z", "--zoom", action="store", type="float", dest="zoom", default=ZOOM,
+                          help="How much to zoom in or out images, as a ratio of their size.\n"
+                               "Default is %s.\n"
+                               "Float, at least 0.\n"
+                               "0 disables zoom." % ZOOM)
+        parser.add_option("-p", "--pan", action="store", type="float", dest="pan", default=PAN,
+                          help="How much to pan images sideways, as a ratio of screen size.\n"
+                               "Default is %s.\n"
+                               "Float, at least 0.\n"
+                               "0 disables pan." % PAN)
+
+        parser.add_option("--sort", action="store", type="string", dest="sort", default="random",
+                          help="""
+In what order to cycle the files. Possible values are:
+random - random order (Default)
+keep - keep order, specified on the commandline (only useful when specifying files, not folders)
+name - sort by folder name, then by filename
+date - sort by file date""")
+
+        parser.add_option("--asc", "--ascending", action="store_true", dest="ascending", help="Use ascending sort order (this is the default)")
+
+        parser.add_option("--desc", "--descending", action="store_true", dest="descending", help="Use descending sort order")
+
+        self.options, args = parser.parse_args(sys.argv)
+
+        if self.options.seconds < 0.1:
+            parser.error("Seconds should be at least 0.1")
+        self.options.interval = self.options.seconds * 1000
+
+        if self.options.fade < 0 or self.options.fade > 1:
+            parser.error("Fade should be between 0 and 1")
+        self.options.fade_time = self.options.interval * self.options.fade
+
+        if self.options.zoom < 0:
+            parser.error("Zoom should be at least 0")
+
+        if self.options.pan < 0:
+            parser.error("Pan should be at least 0")
+
+        self.file_args = args[1:]
+
+        if not self.file_args:
+             self.file_args.append('/usr/share/backgrounds/')
+
+        self.parser = parser
+
+    def prepare_file_queues(self):
+        self.queued = []
+        self.files = []
+        self.cursor = 0
+
+        for arg in self.file_args:
+            path = os.path.abspath(os.path.expanduser(arg))
+            if is_image(path):
+                self.files.append(path)
+
+            elif os.path.isdir(path):
+                for root, dirnames, filenames in os.walk(path):
+                    for filename in filenames:
+                        full_path = os.path.join(root, filename)
+                        if is_image(full_path):
+                            self.files.append(full_path)
+
+        if not self.files:
+            self.parser.error('You should specify some files or folders')
+
+        sort = self.options.sort.lower()
+        if sort == 'keep':
+            pass
+        elif sort == 'name':
+            self.files.sort()
+        elif sort == 'date':
+            self.files.sort(key=os.path.getmtime)
+        else:
+            random.shuffle(self.files)
+
+        if self.options.descending:
+            self.files.reverse()
+
+    def get_next_file(self):
+        if len(self.queued):
+            return self.queued.pop(0)
+        else:
+            f = self.files[self.cursor]
+            self.cursor = (self.cursor + 1) % len(self.files)
+            return f
+
+    def queue(self, filename):
+        self.queued.append(filename)
+
+    def run(self):
+        self.parse_options()
+        self.prepare_file_queues()
 
         Clutter.init(sys.argv)
         Clutter.threads_init()
@@ -76,7 +181,7 @@ class Slideshow:
             self.prev_texture = self.texture
             self.texture = self.next_texture
 
-            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, INTERVAL, self.next, None)
+            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, self.options.interval, self.next, None)
             self.prepare_next_data()
         except:
             logging.exception('Oops:')
@@ -86,10 +191,13 @@ class Slideshow:
         return max(self.stage.get_width() / texture.get_width(), self.stage.get_height() / texture.get_height())
 
     def prepare_next_data(self):
-        filename = os.path.join(self.folder, random.choice(self.files))
+        filename = self.get_next_file()
 
         def f(q, filename):
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(filename)
+            max_w = self.stage.get_width() * (1 + 2 * self.options.zoom)
+            max_h = self.stage.get_height() * (1 + 2 * self.options.zoom)
+
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(filename, max_w, max_h, True)
             data = (
                 pixbuf.get_pixels(),
                 pixbuf.get_has_alpha(),
@@ -112,14 +220,17 @@ class Slideshow:
         return texture
 
     def initialize_pan_and_zoom(self, texture):
-        rand_pan = lambda: random.choice((-1, 1)) * (PAN_FACTOR + PAN_FACTOR * random.random())
-        zoom_factor = ZOOM_FACTOR * (1 + 0.1 * random.random())
+        pan_px = max(self.stage.get_width(), self.stage.get_height()) * self.options.pan
+        rand_pan = lambda: random.choice((-1, 1)) * (pan_px + pan_px * random.random())
+        zoom_factor = (1 + self.options.zoom) * (1 + self.options.zoom * random.random())
 
         scale = self.get_ratio_to_screen(texture)
         base_w, base_h = texture.get_width() * scale, texture.get_height() * scale
 
-        small_size = base_w * SAFETY_ZOOM, base_h * SAFETY_ZOOM
-        big_size = base_w * zoom_factor, base_h * zoom_factor
+        safety_zoom = 1 + self.options.pan/2 if self.options.zoom > 0 else 1
+
+        small_size = base_w * safety_zoom, base_h * safety_zoom
+        big_size = base_w * safety_zoom * zoom_factor, base_h * safety_zoom * zoom_factor
         small_position = (-(small_size[0] - self.stage.get_width())/2,
                           -(small_size[1] - self.stage.get_height())/2)
         big_position = (-(big_size[0] - self.stage.get_width())/2 + rand_pan(),
@@ -142,18 +253,18 @@ class Slideshow:
         # start animating to target size
         texture.save_easing_state()
         texture.set_easing_mode(Clutter.AnimationMode.LINEAR)
-        texture.set_easing_duration(INTERVAL + FADE_TIME)
+        texture.set_easing_duration(self.options.interval + self.options.fade_time)
         texture.set_size(*target_size)
         texture.set_position(*target_position)
 
-    def toggle(self, actor, visible):
-        actor.set_reactive(visible)
-        actor.save_easing_state()
-        actor.set_easing_mode(Clutter.AnimationMode.EASE_OUT_SINE if visible else Clutter.AnimationMode.EASE_IN_SINE)
-        actor.set_easing_duration(FADE_TIME)
-        actor.set_opacity(255 if visible else 0)
+    def toggle(self, texture, visible):
+        texture.set_reactive(visible)
+        texture.save_easing_state()
+        texture.set_easing_mode(Clutter.AnimationMode.EASE_OUT_SINE if visible else Clutter.AnimationMode.EASE_IN_SINE)
+        texture.set_easing_duration(self.options.fade_time)
+        texture.set_opacity(255 if visible else 0)
         if visible:
-            self.stage.raise_child(actor, None)
+            self.stage.raise_child(texture, None)
 
 
 if __name__ == '__main__':
