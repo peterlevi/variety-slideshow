@@ -184,12 +184,16 @@ date - sort by file date;""")
 
     def connect_signals(self):
         # Connect signals
+        def on_button_press(*args):
+            if self.current_mode == 'fullscreen' and not self.mode_was_changed:
+                self.quit()
+
         def on_motion(*args):
-            if self.current_mode == 'fullscreen':
+            if self.current_mode == 'fullscreen' and not self.mode_was_changed:
                 self.quit()
 
         def on_key_press(widget, event):
-            if self.current_mode == 'fullscreen' and not hasattr(self, 'disable_key_quit'):
+            if self.current_mode == 'fullscreen' and not self.mode_was_changed:
                 self.quit()
                 return
 
@@ -207,7 +211,7 @@ date - sort by file date;""")
                 else:
                     self.current_mode = 'fullscreen'
                     self.fullscreen()
-                self.disable_key_quit = True
+                self.mode_was_changed = True
                 GObject.timeout_add(200, self.next)
 
             elif key in ('d', 'D'):
@@ -217,10 +221,6 @@ date - sort by file date;""")
                 else:
                     self.current_mode = 'undecorated'
                     self.set_decorated(False)
-
-        def on_button_press(*args):
-            if self.current_mode == 'fullscreen':
-                self.quit()
 
         self.connect("delete-event", self.quit)
         self.stage.connect('destroy', self.quit)
@@ -259,6 +259,7 @@ date - sort by file date;""")
         GObject.idle_add(lambda: self.move_to_monitor(self.options.monitor))
 
         self.current_mode = self.options.mode
+        self.mode_was_changed = False
         if self.options.mode == 'fullscreen':
             self.fullscreen()
         elif self.options.mode == 'maximized':
@@ -319,7 +320,8 @@ date - sort by file date;""")
     def prepare_next_data(self):
         filename = self.get_next_file()
 
-        def f(q, filename):
+        def _prepare(q, filename):
+            os.nice(20)
             max_w = self.stage.get_width() * (1 + 2 * self.options.zoom)
             max_h = self.stage.get_height() * (1 + 2 * self.options.zoom)
 
@@ -333,7 +335,7 @@ date - sort by file date;""")
                 4 if pixbuf.get_has_alpha() else 3)
             q.put(data)
 
-        p = Process(target=f, args=(self.data_queue, filename))
+        p = Process(target=_prepare, args=(self.data_queue, filename))
         p.daemon = True
         p.start()
 
