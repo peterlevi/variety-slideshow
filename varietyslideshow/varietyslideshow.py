@@ -1,9 +1,28 @@
+#!/usr/bin/python2
+# -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 4 -*-
+### BEGIN LICENSE
+# Copyright (c) 2015, Peter Levi <peterlevi@peterlevi.com>
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 3, as published
+# by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranties of
+# MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR
+# PURPOSE.  See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, see <http://www.gnu.org/licenses/>.
+### END LICENSE
+
 import sys
 
 from gi.repository import GtkClutter
+
 GtkClutter.init(sys.argv)
 
 from gi.repository import Gtk, Gdk, GObject, Clutter, GLib, GdkPixbuf, Cogl
+
 Gtk.init(sys.argv)
 
 from multiprocessing import Process, Queue
@@ -28,16 +47,17 @@ def is_image(filename):
     return os.path.isfile(filename) and filename.lower().endswith(IMAGE_TYPES)
 
 
-class Slideshow(Gtk.Window):
+class VarietySlideshow(Gtk.Window):
     def __init__(self):
         super(Gtk.Window, self).__init__()
 
     def current_monitors_help(self):
-        result = 'Your current monitors are:'
+        result = 'Your current monitors are: '
         screen = Gdk.Screen.get_default()
         for i in range(0, screen.get_n_monitors()):
             geo = screen.get_monitor_geometry(i)
-            result += (', ' if i > 0 else '') + '\n%d - %s, %dx%d' % (i+1, screen.get_monitor_plug_name(i), geo.width, geo.height)
+            result += (', ' if i > 0 else '') + '%d - %s, %dx%d' % (
+                i + 1, screen.get_monitor_plug_name(i), geo.width, geo.height)
         return result
 
     def parse_options(self):
@@ -50,17 +70,17 @@ Starts a slideshow using the given images and/or image folders"""
                           help="Interval in seconds between image changes.\n"
                                "Default is %s.\n"
                                "Float, at least 0.1." % SECONDS)
-        parser.add_option("-f", "--fade", action="store", type="float", dest="fade", default=FADE,
+        parser.add_option("--fade", action="store", type="float", dest="fade", default=FADE,
                           help="Fade duration, as a fraction of the interval.\n"
                                "Default is 0.4, i.e. 0.4 * 4 = 1.6 seconds.\n"
                                "Float, between 0 and 1.\n"
                                "0 disables fade.")
-        parser.add_option("-z", "--zoom", action="store", type="float", dest="zoom", default=ZOOM,
+        parser.add_option("--zoom", action="store", type="float", dest="zoom", default=ZOOM,
                           help="How much to zoom in or out images, as a ratio of their size.\n"
                                "Default is %s.\n"
                                "Float, at least 0.\n"
                                "0 disables zoom." % ZOOM)
-        parser.add_option("-p", "--pan", action="store", type="float", dest="pan", default=PAN,
+        parser.add_option("--pan", action="store", type="float", dest="pan", default=PAN,
                           help="How much to pan images sideways, as a ratio of screen size.\n"
                                "Default is %s.\n"
                                "Float, at least 0.\n"
@@ -69,16 +89,18 @@ Starts a slideshow using the given images and/or image folders"""
         parser.add_option("--sort", action="store", type="string", dest="sort", default="random",
                           help="""
 In what order to cycle the files. Possible values are:
-random - random order (Default)
-keep - keep order, specified on the commandline (only useful when specifying files, not folders)
-name - sort by folder name, then by filename
-date - sort by file date""")
+random - random order (Default);
+keep - keep order, specified on the commandline (only useful when specifying files, not folders);
+name - sort by folder name, then by filename;
+date - sort by file date;""")
 
-        parser.add_option("--asc", "--ascending", action="store_true", dest="ascending", help="Use ascending sort order (this is the default)")
+        parser.add_option("--asc", "--ascending", action="store_true", dest="ascending",
+                          help="Use ascending sort order (this is the default)")
 
-        parser.add_option("--desc", "--descending", action="store_true", dest="descending", help="Use descending sort order")
+        parser.add_option("--desc", "--descending", action="store_true", dest="descending",
+                          help="Use descending sort order")
 
-        parser.add_option("--monitor", action="store", dest="monitor", default=1,
+        parser.add_option("--monitor", action="store", type="int", dest="monitor", default=1,
                           help="On which monitor to run - 1, 2, etc. up to the number of monitors.\n" + self.current_monitors_help())
 
         parser.add_option("--mode", action="store", dest="mode", default="fullscreen",
@@ -106,12 +128,13 @@ date - sort by file date""")
 
         self.options.mode = self.options.mode.lower()
         if self.options.mode not in ('fullscreen', 'maximized', 'desktop', 'window', 'undecorated', 'desktop'):
-            parser.error("Window mode: possible values are 'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'")
+            parser.error("Window mode: possible values are "
+                         "'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'")
 
         self.files_and_folders = args[1:]
 
         if not self.files_and_folders:
-             self.files_and_folders.append('/usr/share/backgrounds/')
+            self.files_and_folders.append('/usr/share/backgrounds/')
 
         self.parser = parser
 
@@ -233,6 +256,8 @@ date - sort by file date""")
         self.resize(600, 400)
         self.move_to_monitor(self.options.monitor)
 
+        GObject.idle_add(lambda: self.move_to_monitor(self.options.monitor))
+
         self.current_mode = self.options.mode
         if self.options.mode == 'fullscreen':
             self.fullscreen()
@@ -328,14 +353,14 @@ date - sort by file date""")
         scale = self.get_ratio_to_screen(texture)
         base_w, base_h = texture.get_width() * scale, texture.get_height() * scale
 
-        safety_zoom = 1 + self.options.pan/2 if self.options.zoom > 0 else 1
+        safety_zoom = 1 + self.options.pan / 2 if self.options.zoom > 0 else 1
 
         small_size = base_w * safety_zoom, base_h * safety_zoom
         big_size = base_w * safety_zoom * zoom_factor, base_h * safety_zoom * zoom_factor
-        small_position = (-(small_size[0] - self.stage.get_width())/2,
-                          -(small_size[1] - self.stage.get_height())/2)
-        big_position = (-(big_size[0] - self.stage.get_width())/2 + rand_pan(),
-                        -(big_size[1] - self.stage.get_height())/2 + rand_pan())
+        small_position = (-(small_size[0] - self.stage.get_width()) / 2,
+                          -(small_size[1] - self.stage.get_height()) / 2)
+        big_position = (-(big_size[0] - self.stage.get_width()) / 2 + rand_pan(),
+                        -(big_size[1] - self.stage.get_height()) / 2 + rand_pan())
 
         if self.will_enlarge:
             initial_size, initial_position = small_size, small_position
@@ -369,4 +394,4 @@ date - sort by file date""")
 
 
 if __name__ == '__main__':
-    Slideshow().run()
+    VarietySlideshow().run()
