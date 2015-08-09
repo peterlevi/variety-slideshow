@@ -28,9 +28,17 @@ def is_image(filename):
     return os.path.isfile(filename) and filename.lower().endswith(IMAGE_TYPES)
 
 
-class Slideshow:
+class Slideshow(Gtk.Window):
     def __init__(self):
-        pass
+        super(Gtk.Window, self).__init__()
+
+    def current_monitors_help(self):
+        result = 'Your current monitors are:'
+        screen = Gdk.Screen.get_default()
+        for i in range(0, screen.get_n_monitors()):
+            geo = screen.get_monitor_geometry(i)
+            result += (', ' if i > 0 else '') + '\n%d - %s, %dx%d' % (i+1, screen.get_monitor_plug_name(i), geo.width, geo.height)
+        return result
 
     def parse_options(self):
         """Support for command line options"""
@@ -70,6 +78,16 @@ date - sort by file date""")
 
         parser.add_option("--desc", "--descending", action="store_true", dest="descending", help="Use descending sort order")
 
+        parser.add_option("--monitor", action="store", dest="monitor", default=1,
+                          help="On which monitor to run - 1, 2, etc. up to the number of monitors.\n" + self.current_monitors_help())
+
+        parser.add_option("--mode", action="store", dest="mode", default="fullscreen",
+                          help="Window mode: possible values are 'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'. "
+                               "Default is fullscreen.")
+
+        parser.add_option("--title", action="store", type="string", dest="title", default='Variety Slideshow',
+                          help="Window title")
+
         self.options, args = parser.parse_args(sys.argv)
 
         if self.options.seconds < 0.1:
@@ -85,6 +103,10 @@ date - sort by file date""")
 
         if self.options.pan < 0:
             parser.error("Pan should be at least 0")
+
+        self.options.mode = self.options.mode.lower()
+        if self.options.mode not in ('fullscreen', 'maximized', 'desktop', 'window', 'undecorated', 'desktop'):
+            parser.error("Window mode: possible values are 'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'")
 
         self.files_and_folders = args[1:]
 
@@ -137,50 +159,114 @@ date - sort by file date""")
     def queue(self, filename):
         self.queued.append(filename)
 
+    def connect_signals(self):
+        # Connect signals
+        def on_motion(*args):
+            if self.current_mode == 'fullscreen':
+                self.quit()
+
+        def on_key_press(widget, event):
+            if self.current_mode == 'fullscreen' and not hasattr(self, 'disable_key_quit'):
+                self.quit()
+                return
+
+            key = Gdk.keyval_name(event.keyval)
+
+            if key == 'Escape':
+                self.quit()
+
+            elif key in ('f', 'F', 'F11'):
+                if self.current_mode == 'desktop':
+                    return
+                if self.current_mode == 'fullscreen':
+                    self.current_mode = 'window'
+                    self.unfullscreen()
+                else:
+                    self.current_mode = 'fullscreen'
+                    self.fullscreen()
+                self.disable_key_quit = True
+                GObject.timeout_add(200, self.next)
+
+            elif key in ('d', 'D'):
+                if self.current_mode == 'undecorated':
+                    self.current_mode = 'window'
+                    self.set_decorated(True)
+                else:
+                    self.current_mode = 'undecorated'
+                    self.set_decorated(False)
+
+        def on_button_press(*args):
+            if self.current_mode == 'fullscreen':
+                self.quit()
+
+        self.connect("delete-event", self.quit)
+        self.stage.connect('destroy', self.quit)
+        self.stage.connect('key-press-event', on_key_press)
+        self.stage.connect('button-press-event', on_button_press)
+        self.stage.connect('motion-event', on_motion)
+
     def run(self):
         self.parse_options()
         self.prepare_file_queues()
 
-        self.window = Gtk.Window()
-        self.screen = self.window.get_screen()
+        self.set_title(self.options.title)
+        self.screen = self.get_screen()
 
         self.embed = GtkClutter.Embed()
-        self.window.add(self.embed)
+        self.add(self.embed)
         self.embed.set_visible(True)
 
         self.stage = self.embed.get_stage()
         self.stage.set_color(Clutter.Color.get_static(Clutter.StaticColor.BLACK))
-        self.stage.hide_cursor()
+        if self.options.mode == 'fullscreen':
+            self.stage.hide_cursor()
 
         self.texture = Clutter.Texture.new()
         self.next_texture = None
         self.prev_texture = None
         self.data_queue = Queue()
 
-        def quit(*args):
-            Gtk.main_quit()
-
-         # Connect signals
-        self.window.connect("delete-event", quit)
-        self.window.connect("key-press-event", quit)
-
-        self.stage.connect('destroy', quit)
-        self.stage.connect('key-press-event', quit)
-        self.stage.connect('button-press-event', quit)
-        self.stage.connect('motion-event', quit)
+        self.connect_signals()
 
         self.will_enlarge = random.choice((True, False))
-        self.prepare_next_data()
-        GObject.timeout_add(300, self.next, priority=GLib.PRIORITY_HIGH)
 
-        self.window.fullscreen()
-        self.window.resize(600, 400)
-        self.window.show()
+        self.resize(600, 400)
+        self.move_to_monitor(self.options.monitor)
 
+        self.current_mode = self.options.mode
+        if self.options.mode == 'fullscreen':
+            self.fullscreen()
+        elif self.options.mode == 'maximized':
+            self.maximize()
+        elif self.options.mode == 'desktop':
+            self.maximize()
+            self.set_keep_below(True)
+        elif self.options.mode == 'undecorated':
+            self.set_decorated(False)
+
+        self.show()
+
+        def after_show():
+            self.prepare_next_data()
+            self.next()
+
+        GObject.idle_add(after_show)
         Gtk.main()
+
+    def quit(self, *args):
+        Gtk.main_quit()
+
+    def move_to_monitor(self, i):
+        i = max(1, min(i, self.screen.get_n_monitors()))
+        rect = self.screen.get_monitor_geometry(i - 1)
+        self.move(rect.x + (rect.width - self.get_size()[0]) / 2, rect.y + (rect.height - self.get_size()[1]) / 2)
 
     def next(self, *args):
         try:
+            if hasattr(self, 'next_timeout'):
+                GObject.source_remove(self.next_timeout)
+                delattr(self, 'next_timeout')
+
             self.will_enlarge = not self.will_enlarge
             self.next_texture = self.create_texture()
             target_size, target_position = self.initialize_pan_and_zoom(self.next_texture)
@@ -196,11 +282,11 @@ date - sort by file date""")
             self.prev_texture = self.texture
             self.texture = self.next_texture
 
-            GObject.timeout_add(int(self.options.interval), self.next, priority=GLib.PRIORITY_HIGH)
+            self.next_timeout = GObject.timeout_add(int(self.options.interval), self.next, priority=GLib.PRIORITY_HIGH)
             self.prepare_next_data()
         except:
-            logging.exception('Oops:')
-            GObject.timeout_add(100, self.next, priority=GLib.PRIORITY_HIGH)
+            logging.exception('Oops, exception in next, rescheduling:')
+            self.next_timeout = GObject.timeout_add(100, self.next, priority=GLib.PRIORITY_HIGH)
 
     def get_ratio_to_screen(self, texture):
         return max(self.stage.get_width() / texture.get_width(), self.stage.get_height() / texture.get_height())
@@ -227,7 +313,7 @@ date - sort by file date""")
         p.start()
 
     def create_texture(self):
-        data = tuple(self.data_queue.get()) + (Clutter.TextureFlags.NONE,)
+        data = tuple(self.data_queue.get(True)) + (Clutter.TextureFlags.NONE,)
         texture = Clutter.Texture.new()
         texture.set_from_rgb_data(*data)
         texture.set_opacity(0)
