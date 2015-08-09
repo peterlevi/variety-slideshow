@@ -1,10 +1,16 @@
-from gi.repository import Clutter, GLib, GdkPixbuf, Cogl
+import sys
+
+from gi.repository import GtkClutter
+GtkClutter.init(sys.argv)
+
+from gi.repository import Gtk, Gdk, GObject, Clutter, GLib, GdkPixbuf, Cogl
+Gtk.init(sys.argv)
+
 from multiprocessing import Process, Queue
 import logging
 import optparse
 import os
 import random
-import sys
 import time
 
 IMAGE_TYPES = ('.jpg', '.jpeg', '.png', '.bmp')
@@ -80,10 +86,10 @@ date - sort by file date""")
         if self.options.pan < 0:
             parser.error("Pan should be at least 0")
 
-        self.file_args = args[1:]
+        self.files_and_folders = args[1:]
 
-        if not self.file_args:
-             self.file_args.append('/usr/share/backgrounds/')
+        if not self.files_and_folders:
+             self.files_and_folders.append('/usr/share/backgrounds/')
 
         self.parser = parser
 
@@ -92,7 +98,7 @@ date - sort by file date""")
         self.files = []
         self.cursor = 0
 
-        for arg in self.file_args:
+        for arg in self.files_and_folders:
             path = os.path.abspath(os.path.expanduser(arg))
             if is_image(path):
                 self.files.append(path)
@@ -135,11 +141,14 @@ date - sort by file date""")
         self.parse_options()
         self.prepare_file_queues()
 
-        Clutter.init(sys.argv)
-        Clutter.threads_init()
+        self.window = Gtk.Window()
+        self.screen = self.window.get_screen()
 
-        self.stage = Clutter.Stage()
-        self.stage.set_fullscreen(True)
+        self.embed = GtkClutter.Embed()
+        self.window.add(self.embed)
+        self.embed.set_visible(True)
+
+        self.stage = self.embed.get_stage()
         self.stage.set_color(Clutter.Color.get_static(Clutter.StaticColor.BLACK))
         self.stage.hide_cursor()
 
@@ -149,9 +158,12 @@ date - sort by file date""")
         self.data_queue = Queue()
 
         def quit(*args):
-            Clutter.main_quit()
+            Gtk.main_quit()
 
          # Connect signals
+        self.window.connect("delete-event", quit)
+        self.window.connect("key-press-event", quit)
+
         self.stage.connect('destroy', quit)
         self.stage.connect('key-press-event', quit)
         self.stage.connect('button-press-event', quit)
@@ -159,10 +171,13 @@ date - sort by file date""")
 
         self.will_enlarge = random.choice((True, False))
         self.prepare_next_data()
-        Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, 300, self.next, None)
-        self.stage.show()
+        GObject.timeout_add(300, self.next, priority=GLib.PRIORITY_HIGH)
 
-        Clutter.main()
+        self.window.fullscreen()
+        self.window.resize(600, 400)
+        self.window.show()
+
+        Gtk.main()
 
     def next(self, *args):
         try:
@@ -181,11 +196,11 @@ date - sort by file date""")
             self.prev_texture = self.texture
             self.texture = self.next_texture
 
-            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, self.options.interval, self.next, None)
+            GObject.timeout_add(int(self.options.interval), self.next, priority=GLib.PRIORITY_HIGH)
             self.prepare_next_data()
         except:
             logging.exception('Oops:')
-            Clutter.threads_add_timeout(GLib.PRIORITY_HIGH, 100, self.next, None)
+            GObject.timeout_add(100, self.next, priority=GLib.PRIORITY_HIGH)
 
     def get_ratio_to_screen(self, texture):
         return max(self.stage.get_width() / texture.get_width(), self.stage.get_height() / texture.get_height())
