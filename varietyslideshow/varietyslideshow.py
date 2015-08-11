@@ -141,6 +141,7 @@ date - sort by file date;""")
     def prepare_file_queues(self):
         self.queued = []
         self.files = []
+        self.error_files = set()
         self.cursor = 0
 
         for arg in self.files_and_folders:
@@ -172,12 +173,22 @@ date - sort by file date;""")
             self.files.reverse()
 
     def get_next_file(self):
+        if not self.running:
+            return None
         if len(self.queued):
             return self.queued.pop(0)
         else:
+            if self.error_files == set(self.files):
+                logging.error('Could not find any non-corrupt images, exiting.')
+                self.quit()
+                return None
+
             f = self.files[self.cursor]
             self.cursor = (self.cursor + 1) % len(self.files)
-            return f
+            if f in self.error_files:
+                return self.get_next_file()
+            else:
+                return f
 
     def queue(self, filename):
         self.queued.append(filename)
@@ -229,6 +240,8 @@ date - sort by file date;""")
         self.stage.connect('motion-event', on_motion)
 
     def run(self):
+        self.running = True
+
         self.parse_options()
         self.prepare_file_queues()
 
@@ -280,6 +293,8 @@ date - sort by file date;""")
         Gtk.main()
 
     def quit(self, *args):
+        logging.info('Exiting...')
+        self.running = False
         Gtk.main_quit()
 
     def move_to_monitor(self, i):
@@ -288,13 +303,22 @@ date - sort by file date;""")
         self.move(rect.x + (rect.width - self.get_size()[0]) / 2, rect.y + (rect.height - self.get_size()[1]) / 2)
 
     def next(self, *args):
+        if not self.running:
+            return
         try:
             if hasattr(self, 'next_timeout'):
                 GObject.source_remove(self.next_timeout)
                 delattr(self, 'next_timeout')
 
-            self.will_enlarge = not self.will_enlarge
-            self.next_texture = self.create_texture()
+            image_data = self.data_queue.get(True, timeout=1)
+            if not isinstance(image_data, tuple):
+                if image_data:
+                    logging.info('Error in %s, skipping it' % image_data)
+                    self.error_files.add(image_data)
+                self.prepare_next_data()
+                return self.next()
+
+            self.next_texture = self.create_texture(image_data)
             target_size, target_position = self.initialize_pan_and_zoom(self.next_texture)
 
             self.stage.add_actor(self.next_texture)
@@ -319,28 +343,35 @@ date - sort by file date;""")
 
     def prepare_next_data(self):
         filename = self.get_next_file()
+        if not filename:
+            self.data_queue.put(None)
+            return
 
         def _prepare(q, filename):
             os.nice(20)
             max_w = self.stage.get_width() * (1 + 2 * self.options.zoom)
             max_h = self.stage.get_height() * (1 + 2 * self.options.zoom)
 
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(filename, max_w, max_h, True)
-            data = (
-                pixbuf.get_pixels(),
-                pixbuf.get_has_alpha(),
-                pixbuf.get_width(),
-                pixbuf.get_height(),
-                pixbuf.get_rowstride(),
-                4 if pixbuf.get_has_alpha() else 3)
-            q.put(data)
+            try:
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(filename, max_w, max_h, True)
+                data = (
+                    pixbuf.get_pixels(),
+                    pixbuf.get_has_alpha(),
+                    pixbuf.get_width(),
+                    pixbuf.get_height(),
+                    pixbuf.get_rowstride(),
+                    4 if pixbuf.get_has_alpha() else 3)
+                q.put(data)
+            except:
+                logging.exception('Could not open file %s' % filename)
+                q.put(filename)
 
         p = Process(target=_prepare, args=(self.data_queue, filename))
         p.daemon = True
         p.start()
 
-    def create_texture(self):
-        data = tuple(self.data_queue.get(True)) + (Clutter.TextureFlags.NONE,)
+    def create_texture(self, image_data):
+        data = tuple(image_data) + (Clutter.TextureFlags.NONE,)
         texture = Clutter.Texture.new()
         texture.set_from_rgb_data(*data)
         texture.set_opacity(0)
@@ -348,6 +379,8 @@ date - sort by file date;""")
         return texture
 
     def initialize_pan_and_zoom(self, texture):
+        self.will_enlarge = not self.will_enlarge
+
         pan_px = max(self.stage.get_width(), self.stage.get_height()) * self.options.pan
         rand_pan = lambda: random.choice((-1, 1)) * (pan_px + pan_px * random.random())
         zoom_factor = (1 + self.options.zoom) * (1 + self.options.zoom * random.random())
