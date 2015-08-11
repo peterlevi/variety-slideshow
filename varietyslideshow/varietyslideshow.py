@@ -270,13 +270,13 @@ date - sort by file date;""")
         elif self.options.mode == 'undecorated':
             self.set_decorated(False)
 
-        self.show()
-
-        def after_show():
+        def after_show(*args):
             self.prepare_next_data()
             self.next()
 
-        GObject.idle_add(after_show)
+        self.connect('show', lambda *args: GObject.idle_add(after_show))
+
+        self.show()
         Gtk.main()
 
     def quit(self, *args):
