@@ -34,9 +34,9 @@ import time
 
 IMAGE_TYPES = ('.jpg', '.jpeg', '.png', '.bmp')
 
-SECONDS = 4
-FADE = 0.4
-ZOOM = 0.25
+SECONDS = 6
+FADE = 0.5
+ZOOM = 0.2
 PAN = 0.05
 
 random.seed(time.time())
@@ -269,23 +269,27 @@ date - sort by file date;""")
         self.resize(600, 400)
         self.move_to_monitor(self.options.monitor)
 
-        GObject.idle_add(lambda: self.move_to_monitor(self.options.monitor))
-
         self.current_mode = self.options.mode
         self.mode_was_changed = False
         if self.options.mode == 'fullscreen':
             self.fullscreen()
+            self.set_skip_taskbar_hint(True)
         elif self.options.mode == 'maximized':
             self.maximize()
         elif self.options.mode == 'desktop':
             self.maximize()
+            self.set_decorated(False)
             self.set_keep_below(True)
+            self.set_skip_taskbar_hint(True)
         elif self.options.mode == 'undecorated':
             self.set_decorated(False)
 
         def after_show(*args):
-            self.prepare_next_data()
-            self.next()
+            def f():
+                self.move_to_monitor(self.options.monitor)
+                self.prepare_next_data()
+                self.next()
+            GObject.timeout_add(200, f)
 
         self.connect('show', lambda *args: GObject.idle_add(after_show))
 
