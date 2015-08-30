@@ -351,7 +351,7 @@ date - sort by file date;""")
             self.data_queue.put(None)
             return
 
-        def _prepare(q, filename):
+        def _prepare(filename):
             os.nice(20)
             max_w = self.stage.get_width() * (1 + 2 * self.options.zoom)
             max_h = self.stage.get_height() * (1 + 2 * self.options.zoom)
@@ -365,12 +365,12 @@ date - sort by file date;""")
                     pixbuf.get_height(),
                     pixbuf.get_rowstride(),
                     4 if pixbuf.get_has_alpha() else 3)
-                q.put(data)
+                self.data_queue.put(data)
             except:
                 logging.exception('Could not open file %s' % filename)
-                q.put(filename)
+                self.data_queue.put(filename)
 
-        p = Process(target=_prepare, args=(self.data_queue, filename))
+        p = Process(target=_prepare, args=(filename,))
         p.daemon = True
         p.start()
 
