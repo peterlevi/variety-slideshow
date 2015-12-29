@@ -320,7 +320,6 @@ date - sort by file date;""")
             self.maximize()
             self.set_decorated(False)
             self.set_keep_below(True)
-            self.set_skip_taskbar_hint(True)
         elif self.options.mode == 'undecorated':
             self.set_decorated(False)
 
