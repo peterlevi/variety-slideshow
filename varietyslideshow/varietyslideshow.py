@@ -33,7 +33,7 @@ import os
 import random
 import time
 
-from variety.AttrDict import AttrDict
+from AttrDict import AttrDict
 
 IMAGE_TYPES = ('.jpg', '.jpeg', '.png', '.bmp')
 
