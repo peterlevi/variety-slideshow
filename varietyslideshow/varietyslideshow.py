@@ -16,6 +16,8 @@
 ### END LICENSE
 import sys
 
+import gi
+gi.require_version('GtkClutter', '1.0')
 from gi.repository import GtkClutter
 
 GtkClutter.init(sys.argv)
