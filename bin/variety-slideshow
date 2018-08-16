@@ -35,5 +35,5 @@ if os.path.exists(os.path.join(PROJECT_ROOT_DIRECTORY, 'varietyslideshow')):
 if python_path:
     os.putenv('PYTHONPATH', "%s:%s" % (os.getenv('PYTHONPATH', ''), ':'.join(python_path))) # for subprocesses
 
-from varietyslideshow.varietyslideshow import VarietySlideshow
-VarietySlideshow().run()
+from varietyslideshow import varietyslideshow
+varietyslideshow.main()
