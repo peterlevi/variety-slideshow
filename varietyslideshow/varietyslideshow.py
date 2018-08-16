@@ -335,6 +335,14 @@ date - sort by file date;""")
             self.window.set_decorated(False)
             self.window.set_keep_below(True)
 
+            # ensure window will get deiconified (i.e. unminimized) after "Show Desktop" button/shortcut
+            def _window_state_changed(window, event, *args):
+                if event.new_window_state & Gdk.WindowState.ICONIFIED:
+                    self.window.deiconify()
+                    self.window.present()
+
+            self.window.connect('window-state-event', _window_state_changed)
+
         elif self.options.mode == 'undecorated':
             self.window.set_decorated(False)
 
