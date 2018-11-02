@@ -3,7 +3,7 @@ A pan-and-zoom image slideshow for Linux
 
 Written in Python using Clutter (via PyGObject).
 
-It can work as a standalone command-line utility, or as a "component" of Variety Wallpaper Changer (https://launchpad.net/variety).  
+It can work as a standalone command-line utility, or as a "component" of Variety Wallpaper Changer (http://peterlevi.com/variety).  
 Run it with "--help" to see options.
 
 If you also have Variety installed, it will provide a tab in its preferences for configuring and running Variety Slideshow, i.e. Variety serves as the GUI frontend for the Slideshow. variety-slideshow is listed in the Recommends section of Variety's package.  
