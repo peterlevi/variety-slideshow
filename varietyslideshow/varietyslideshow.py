@@ -14,32 +14,34 @@
 # You should have received a copy of the GNU General Public License along
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 ### END LICENSE
-import sys
-
-import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('GtkClutter', '1.0')
-from gi.repository import GtkClutter
-
-GtkClutter.init(sys.argv)
-
-from gi.repository import Gtk, Gdk, GObject, Clutter, GLib, GdkPixbuf, Cogl
-
-Gtk.init(sys.argv)
-
-import signal
-import json
 import io
-from multiprocessing import Process, Queue
+import json
 import logging
 import optparse
 import os
 import random
+import signal
+import sys
 import time
+from multiprocessing import Process, Queue
 
-from AttrDict import AttrDict
+from .AttrDict import AttrDict
 
-IMAGE_TYPES = ('.jpg', '.jpeg', '.png', '.bmp')
+# fmt: off
+import gi  # isort:skip
+gi.require_version('Gtk', '3.0')
+gi.require_version('GtkClutter', '1.0')
+from gi.repository import GtkClutter  # isort:skip
+
+GtkClutter.init(sys.argv)
+
+from gi.repository import Gtk, Gdk, GObject, Clutter, GLib, GdkPixbuf, Cogl  # isort:skip
+
+Gtk.init(sys.argv)
+# fmt: on
+
+
+IMAGE_TYPES = (".jpg", ".jpeg", ".png", ".bmp")
 
 SECONDS = 6
 FADE = 0.5
@@ -87,10 +89,8 @@ class VarietySlideshow:
                 os.makedirs(os.path.expanduser("~/.config/variety/"))
             except:
                 pass
-            with io.open(
-                os.path.expanduser("~/.config/variety/variety_slideshow.json"), "w", encoding="utf8"
-            ) as f:
-                f.write(json.dumps(self.options, indent=4, ensure_ascii=False, encoding="utf8"))
+            with open(os.path.expanduser("~/.config/variety/variety_slideshow.json"), "w") as f:
+                f.write(json.dumps(self.options, indent=4, ensure_ascii=False).encode("utf8"))
         except:
             logging.exception("Could not save options:")
 

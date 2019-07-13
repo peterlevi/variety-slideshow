@@ -23,7 +23,7 @@ try:
     import DistUtilsExtra.auto
     from DistUtilsExtra.command.build_icons import build_icons
 except ImportError:
-    print >>sys.stderr, "To build variety-slideshow you need https://launchpad.net/python-distutils-extra"
+    print("To build variety-slideshow you need https://launchpad.net/python-distutils-extra", file=sys.stderr)
     sys.exit(1)
 assert DistUtilsExtra.auto.__version__ >= "2.18", "needs DistUtilsExtra.auto >= 2.18"
 
