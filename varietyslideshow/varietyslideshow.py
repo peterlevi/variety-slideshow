@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License along
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 ### END LICENSE
-import io
 import json
 import logging
 import optparse
@@ -76,21 +75,23 @@ class VarietySlideshow:
             return
 
         try:
-            with io.open(
-                os.path.expanduser("~/.config/variety/variety_slideshow.json"), encoding="utf8"
-            ) as f:
-                self.options = AttrDict(json.loads(f.read()))
+            configdir = os.path.expanduser("~/.config/variety/")
+            configfile = os.path.join(configdir, "variety_slideshow.json")
+            with open(configfile, encoding="utf8") as f:
+                self.options = AttrDict(json.load(f))
         except:
             self.options = AttrDict()
 
     def save_options(self):
         try:
+            configdir = os.path.expanduser("~/.config/variety/")
             try:
-                os.makedirs(os.path.expanduser("~/.config/variety/"))
+                os.makedirs(configdir)
             except:
                 pass
-            with open(os.path.expanduser("~/.config/variety/variety_slideshow.json"), "w") as f:
-                f.write(json.dumps(self.options, indent=4, ensure_ascii=False).encode("utf8"))
+            configfile = os.path.join(configdir, "variety_slideshow.json")
+            with open(configfile, "w", encoding="utf8") as f:
+                json.dump(self.options, f, ensure_ascii=False)
         except:
             logging.exception("Could not save options:")
 
