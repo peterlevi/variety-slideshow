@@ -54,23 +54,29 @@ def is_image(filename):
     return os.path.isfile(filename) and filename.lower().endswith(IMAGE_TYPES)
 
 
-class VarietySlideshow():
+class VarietySlideshow:
     def current_monitors_help(self):
-        result = 'Your current monitors are: '
+        result = "Your current monitors are: "
         screen = Gdk.Screen.get_default()
         for i in range(0, screen.get_n_monitors()):
             geo = screen.get_monitor_geometry(i)
-            result += (', ' if i > 0 else '') + '%d - %s, %dx%d' % (
-                i + 1, screen.get_monitor_plug_name(i), geo.width, geo.height)
+            result += (", " if i > 0 else "") + "%d - %s, %dx%d" % (
+                i + 1,
+                screen.get_monitor_plug_name(i),
+                geo.width,
+                geo.height,
+            )
         return result
 
     def load_options(self):
-        if '--defaults' in sys.argv:
+        if "--defaults" in sys.argv:
             self.options = AttrDict()
             return
 
         try:
-            with io.open(os.path.expanduser(u'~/.config/variety/variety_slideshow.json'), encoding='utf8') as f:
+            with io.open(
+                os.path.expanduser("~/.config/variety/variety_slideshow.json"), encoding="utf8"
+            ) as f:
                 self.options = AttrDict(json.loads(f.read()))
         except:
             self.options = AttrDict()
@@ -78,13 +84,15 @@ class VarietySlideshow():
     def save_options(self):
         try:
             try:
-                os.makedirs(os.path.expanduser(u'~/.config/variety/'))
+                os.makedirs(os.path.expanduser("~/.config/variety/"))
             except:
                 pass
-            with io.open(os.path.expanduser(u'~/.config/variety/variety_slideshow.json'), 'w', encoding='utf8') as f:
-                f.write(json.dumps(self.options, indent=4, ensure_ascii=False, encoding='utf8'))
+            with io.open(
+                os.path.expanduser("~/.config/variety/variety_slideshow.json"), "w", encoding="utf8"
+            ) as f:
+                f.write(json.dumps(self.options, indent=4, ensure_ascii=False, encoding="utf8"))
         except:
-            logging.exception(u'Could not save options:')
+            logging.exception("Could not save options:")
 
     def parse_options(self):
         """Support for command line options"""
@@ -92,72 +100,124 @@ class VarietySlideshow():
 Starts a slideshow using the given images and/or image folders. Options are automatically saved, and reused next time you start the slideshow."""
         parser = optparse.OptionParser(usage=usage)
 
-        parser.add_option("-s", "--seconds", action="store", type="float", dest="seconds",
-                          default=self.options.get("seconds", SECONDS),
-                          help="Interval in seconds between image changes.\n"
-                               "Default is %s.\n"
-                               "Float, at least 0.1." % SECONDS)
-        parser.add_option("--fade", action="store", type="float", dest="fade",
-                          default=self.options.get("fade", FADE),
-                          help="Fade duration, as a fraction of the interval.\n"
-                               "Default is 0.4, i.e. 0.4 * 6 = 2.4 seconds.\n"
-                               "Float, between 0 and 1.\n"
-                               "0 disables fade.")
-        parser.add_option("--zoom", action="store", type="float", dest="zoom",
-                          default=self.options.get("zoom", ZOOM),
-                          help="How much to zoom in or out images, as a ratio of their size.\n"
-                               "Default is %s.\n"
-                               "Float, at least 0.\n"
-                               "0 disables zoom." % ZOOM)
-        parser.add_option("--pan", action="store", type="float", dest="pan",
-                          default=self.options.get("pan", PAN),
-                          help="How much to pan images sideways, as a ratio of screen size.\n"
-                               "Default is %s.\n"
-                               "Float, at least 0.\n"
-                               "0 disables pan." % PAN)
+        parser.add_option(
+            "-s",
+            "--seconds",
+            action="store",
+            type="float",
+            dest="seconds",
+            default=self.options.get("seconds", SECONDS),
+            help="Interval in seconds between image changes.\n"
+            "Default is %s.\n"
+            "Float, at least 0.1." % SECONDS,
+        )
+        parser.add_option(
+            "--fade",
+            action="store",
+            type="float",
+            dest="fade",
+            default=self.options.get("fade", FADE),
+            help="Fade duration, as a fraction of the interval.\n"
+            "Default is 0.4, i.e. 0.4 * 6 = 2.4 seconds.\n"
+            "Float, between 0 and 1.\n"
+            "0 disables fade.",
+        )
+        parser.add_option(
+            "--zoom",
+            action="store",
+            type="float",
+            dest="zoom",
+            default=self.options.get("zoom", ZOOM),
+            help="How much to zoom in or out images, as a ratio of their size.\n"
+            "Default is %s.\n"
+            "Float, at least 0.\n"
+            "0 disables zoom." % ZOOM,
+        )
+        parser.add_option(
+            "--pan",
+            action="store",
+            type="float",
+            dest="pan",
+            default=self.options.get("pan", PAN),
+            help="How much to pan images sideways, as a ratio of screen size.\n"
+            "Default is %s.\n"
+            "Float, at least 0.\n"
+            "0 disables pan." % PAN,
+        )
 
-        parser.add_option("--sort", action="store", type="string", dest="sort",
-                          default=self.options.get("sort", "random"),
-                          help="""
+        parser.add_option(
+            "--sort",
+            action="store",
+            type="string",
+            dest="sort",
+            default=self.options.get("sort", "random"),
+            help="""
 In what order to cycle the files. Possible values are:
 random - random order (Default);
 keep - keep order, specified on the commandline (only useful when specifying files, not folders);
 name - sort by folder name, then by filename;
-date - sort by file date;""")
+date - sort by file date;""",
+        )
 
-        parser.add_option("--order", action="store", dest="sort_order",
-                          default=self.options.get("sort_order", "asc"),
-                          help="Sort order: asc/ascending (this is the default), or desc/descending")
+        parser.add_option(
+            "--order",
+            action="store",
+            dest="sort_order",
+            default=self.options.get("sort_order", "asc"),
+            help="Sort order: asc/ascending (this is the default), or desc/descending",
+        )
 
-        parser.add_option("--monitor", action="store", type="int", dest="monitor",
-                          default=self.options.get("monitor", 1),
-                          help="On which monitor to run - 1, 2, etc. up to the number of monitors.\n" + self.current_monitors_help())
+        parser.add_option(
+            "--monitor",
+            action="store",
+            type="int",
+            dest="monitor",
+            default=self.options.get("monitor", 1),
+            help="On which monitor to run - 1, 2, etc. up to the number of monitors.\n"
+            + self.current_monitors_help(),
+        )
 
-        parser.add_option("--mode", action="store", dest="mode",
-                          default=self.options.get("mode", "fullscreen"),
-                          help="Window mode: possible values are 'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'. "
-                               "Default is fullscreen.")
+        parser.add_option(
+            "--mode",
+            action="store",
+            dest="mode",
+            default=self.options.get("mode", "fullscreen"),
+            help="Window mode: possible values are 'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'. "
+            "Default is fullscreen.",
+        )
 
-        parser.add_option("--title", action="store", type="string", dest="title",
-                          default=self.options.get("title", "Variety Slideshow"),
-                          help="Window title")
+        parser.add_option(
+            "--title",
+            action="store",
+            type="string",
+            dest="title",
+            default=self.options.get("title", "Variety Slideshow"),
+            help="Window title",
+        )
 
-        parser.add_option("--defaults", action="store_true", dest="defaults",
-                          help="Do not load saved options, use defaults instead. "
-                               "You can still specify commandline parameters to override them.")
+        parser.add_option(
+            "--defaults",
+            action="store_true",
+            dest="defaults",
+            help="Do not load saved options, use defaults instead. "
+            "You can still specify commandline parameters to override them.",
+        )
 
-        parser.add_option("--quit-on-motion", action="store_true", dest="quit_on_motion",
-                          help="Should mouse motion stop the slideshow, like a screensaver?")
-
+        parser.add_option(
+            "--quit-on-motion",
+            action="store_true",
+            dest="quit_on_motion",
+            help="Should mouse motion stop the slideshow, like a screensaver?",
+        )
 
         cmd_options, args = parser.parse_args(sys.argv)
         self.options.update(vars(cmd_options))
-        if 'defaults' in self.options:
-            del self.options['defaults']
+        if "defaults" in self.options:
+            del self.options["defaults"]
         if len(args) > 1:
             self.options.files_and_folders = args[1:]
-        if 'files_and_folders' not in self.options:
-            self.options.files_and_folders = ['/usr/share/backgrounds/']
+        if "files_and_folders" not in self.options:
+            self.options.files_and_folders = ["/usr/share/backgrounds/"]
 
         if self.options.seconds < 0.1:
             parser.error("Seconds should be at least 0.1")
@@ -174,9 +234,18 @@ date - sort by file date;""")
             parser.error("Pan should be at least 0")
 
         self.options.mode = self.options.mode.lower()
-        if self.options.mode not in ('fullscreen', 'maximized', 'desktop', 'window', 'undecorated', 'desktop'):
-            parser.error("Window mode: possible values are "
-                         "'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'")
+        if self.options.mode not in (
+            "fullscreen",
+            "maximized",
+            "desktop",
+            "window",
+            "undecorated",
+            "desktop",
+        ):
+            parser.error(
+                "Window mode: possible values are "
+                "'fullscreen', 'maximized', 'desktop', 'window' and 'undecorated'"
+            )
 
         self.parser = parser
 
@@ -207,19 +276,19 @@ date - sort by file date;""")
                 break
 
         if not self.files:
-            self.parser.error('You should specify some files or folders')
+            self.parser.error("You should specify some files or folders")
 
         sort = self.options.sort.lower()
-        if sort == 'keep':
+        if sort == "keep":
             pass
-        elif sort == 'name':
+        elif sort == "name":
             self.files.sort()
-        elif sort == 'date':
+        elif sort == "date":
             self.files.sort(key=os.path.getmtime)
         else:
             random.shuffle(self.files)
 
-        if self.options.sort_order.lower().startswith('desc'):
+        if self.options.sort_order.lower().startswith("desc"):
             self.files.reverse()
 
     def get_next_file(self):
@@ -229,7 +298,7 @@ date - sort by file date;""")
             return self.queued.pop(0)
         else:
             if self.error_files == set(self.files):
-                logging.error('Could not find any non-corrupt images, exiting.')
+                logging.error("Could not find any non-corrupt images, exiting.")
                 self.quit()
                 return None
 
@@ -246,48 +315,52 @@ date - sort by file date;""")
     def connect_signals(self):
         # Connect signals
         def on_button_press(*args):
-            if self.current_mode == 'fullscreen' and not self.mode_was_changed:
+            if self.current_mode == "fullscreen" and not self.mode_was_changed:
                 self.quit()
 
         def on_motion(*args):
-            if self.options.quit_on_motion and self.current_mode == 'fullscreen' and not self.mode_was_changed:
+            if (
+                self.options.quit_on_motion
+                and self.current_mode == "fullscreen"
+                and not self.mode_was_changed
+            ):
                 self.quit()
 
         def on_key_press(widget, event):
-            if self.current_mode == 'fullscreen' and not self.mode_was_changed:
+            if self.current_mode == "fullscreen" and not self.mode_was_changed:
                 self.quit()
                 return
 
             key = Gdk.keyval_name(event.keyval)
 
-            if key == 'Escape':
+            if key == "Escape":
                 self.quit()
 
-            elif key in ('f', 'F', 'F11'):
-                if self.current_mode == 'desktop':
+            elif key in ("f", "F", "F11"):
+                if self.current_mode == "desktop":
                     return
-                if self.current_mode == 'fullscreen':
-                    self.current_mode = 'window'
+                if self.current_mode == "fullscreen":
+                    self.current_mode = "window"
                     self.window.unfullscreen()
                 else:
-                    self.current_mode = 'fullscreen'
+                    self.current_mode = "fullscreen"
                     self.window.fullscreen()
                 self.mode_was_changed = True
                 GObject.timeout_add(200, self.go_next)
 
-            elif key in ('d', 'D'):
-                if self.current_mode == 'undecorated':
-                    self.current_mode = 'window'
+            elif key in ("d", "D"):
+                if self.current_mode == "undecorated":
+                    self.current_mode = "window"
                     self.window.set_decorated(True)
                 else:
-                    self.current_mode = 'undecorated'
+                    self.current_mode = "undecorated"
                     self.window.set_decorated(False)
 
         self.window.connect("delete-event", self.quit)
-        self.stage.connect('destroy', self.quit)
-        self.stage.connect('key-press-event', on_key_press)
-        self.stage.connect('button-press-event', on_button_press)
-        self.stage.connect('motion-event', on_motion)
+        self.stage.connect("destroy", self.quit)
+        self.stage.connect("key-press-event", on_key_press)
+        self.stage.connect("button-press-event", on_button_press)
+        self.stage.connect("motion-event", on_motion)
 
     def run(self):
         self.running = True
@@ -295,7 +368,7 @@ date - sort by file date;""")
         self.window = Gtk.Window()
 
         self.load_options()  # loads from config file
-        self.parse_options()    # parses the command-line arguments, these take precedence over the saved config
+        self.parse_options()  # parses the command-line arguments, these take precedence over the saved config
         self.save_options()
         self.prepare_file_queues()
 
@@ -308,7 +381,7 @@ date - sort by file date;""")
 
         self.stage = self.embed.get_stage()
         self.stage.set_color(Clutter.Color.get_static(Clutter.StaticColor.BLACK))
-        if self.options.mode == 'fullscreen':
+        if self.options.mode == "fullscreen":
             self.stage.hide_cursor()
 
         self.texture = Clutter.Texture.new()
@@ -325,12 +398,12 @@ date - sort by file date;""")
 
         self.current_mode = self.options.mode
         self.mode_was_changed = False
-        if self.options.mode == 'fullscreen':
+        if self.options.mode == "fullscreen":
             self.window.fullscreen()
             self.window.set_skip_taskbar_hint(True)
-        elif self.options.mode == 'maximized':
+        elif self.options.mode == "maximized":
             self.window.maximize()
-        elif self.options.mode == 'desktop':
+        elif self.options.mode == "desktop":
             self.window.maximize()
             self.window.set_decorated(False)
             self.window.set_keep_below(True)
@@ -341,13 +414,12 @@ date - sort by file date;""")
                     self.window.deiconify()
                     self.window.present()
 
-            self.window.connect('window-state-event', _window_state_changed)
+            self.window.connect("window-state-event", _window_state_changed)
 
-        elif self.options.mode == 'undecorated':
+        elif self.options.mode == "undecorated":
             self.window.set_decorated(False)
 
         def after_show(*args):
-
             def f():
                 self.move_to_monitor(self.options.monitor)
                 self.prepare_next_data()
@@ -355,12 +427,12 @@ date - sort by file date;""")
 
             GObject.timeout_add(200, f)
 
-        self.window.connect('show', lambda *args: GObject.idle_add(after_show))
+        self.window.connect("show", lambda *args: GObject.idle_add(after_show))
         self.window.show()
         Gtk.main()
 
     def quit(self, *args):
-        logging.info('Exiting...')
+        logging.info("Exiting...")
         self.running = False
         Gtk.main_quit()
 
@@ -369,20 +441,21 @@ date - sort by file date;""")
         rect = self.screen.get_monitor_geometry(i - 1)
         self.window.move(
             rect.x + (rect.width - self.window.get_size()[0]) / 2,
-            rect.y + (rect.height - self.window.get_size()[1]) / 2)
+            rect.y + (rect.height - self.window.get_size()[1]) / 2,
+        )
 
     def go_next(self, *args):
         if not self.running:
             return
         try:
-            if hasattr(self, 'next_timeout'):
+            if hasattr(self, "next_timeout"):
                 GObject.source_remove(self.next_timeout)
-                delattr(self, 'next_timeout')
+                delattr(self, "next_timeout")
 
             image_data = self.data_queue.get(True, timeout=1)
             if not isinstance(image_data, tuple):
                 if image_data:
-                    logging.info('Error in %s, skipping it' % image_data)
+                    logging.info("Error in %s, skipping it" % image_data)
                     self.error_files.add(image_data)
                 self.prepare_next_data()
                 return self.go_next()
@@ -401,14 +474,19 @@ date - sort by file date;""")
             self.prev_texture = self.texture
             self.texture = self.next_texture
 
-            self.next_timeout = GObject.timeout_add(int(self.interval), self.go_next, priority=GLib.PRIORITY_HIGH)
+            self.next_timeout = GObject.timeout_add(
+                int(self.interval), self.go_next, priority=GLib.PRIORITY_HIGH
+            )
             self.prepare_next_data()
         except:
-            logging.exception('Oops, exception in next, rescheduling:')
+            logging.exception("Oops, exception in next, rescheduling:")
             self.next_timeout = GObject.timeout_add(100, self.go_next, priority=GLib.PRIORITY_HIGH)
 
     def get_ratio_to_screen(self, texture):
-        return max(self.stage.get_width() / texture.get_width(), self.stage.get_height() / texture.get_height())
+        return max(
+            self.stage.get_width() / texture.get_width(),
+            self.stage.get_height() / texture.get_height(),
+        )
 
     def prepare_next_data(self):
         filename = self.get_next_file()
@@ -429,10 +507,11 @@ date - sort by file date;""")
                     pixbuf.get_width(),
                     pixbuf.get_height(),
                     pixbuf.get_rowstride(),
-                    4 if pixbuf.get_has_alpha() else 3)
+                    4 if pixbuf.get_has_alpha() else 3,
+                )
                 self.data_queue.put(data)
             except:
-                logging.exception('Could not open file %s' % filename)
+                logging.exception("Could not open file %s" % filename)
                 self.data_queue.put(filename)
 
         p = Process(target=_prepare, args=(filename,))
@@ -461,10 +540,14 @@ date - sort by file date;""")
 
         small_size = base_w * safety_zoom, base_h * safety_zoom
         big_size = base_w * safety_zoom * zoom_factor, base_h * safety_zoom * zoom_factor
-        small_position = (-(small_size[0] - self.stage.get_width()) / 2,
-                          -(small_size[1] - self.stage.get_height()) / 2)
-        big_position = (-(big_size[0] - self.stage.get_width()) / 2 + rand_pan(),
-                        -(big_size[1] - self.stage.get_height()) / 2 + rand_pan())
+        small_position = (
+            -(small_size[0] - self.stage.get_width()) / 2,
+            -(small_size[1] - self.stage.get_height()) / 2,
+        )
+        big_position = (
+            -(big_size[0] - self.stage.get_width()) / 2 + rand_pan(),
+            -(big_size[1] - self.stage.get_height()) / 2 + rand_pan(),
+        )
 
         if self.will_enlarge:
             initial_size, initial_position = small_size, small_position
@@ -490,7 +573,9 @@ date - sort by file date;""")
     def toggle(self, texture, visible):
         texture.set_reactive(visible)
         texture.save_easing_state()
-        texture.set_easing_mode(Clutter.AnimationMode.EASE_OUT_SINE if visible else Clutter.AnimationMode.EASE_IN_SINE)
+        texture.set_easing_mode(
+            Clutter.AnimationMode.EASE_OUT_SINE if visible else Clutter.AnimationMode.EASE_IN_SINE
+        )
         texture.set_easing_duration(self.fade_time)
         texture.set_opacity(255 if visible else 0)
         if visible:
@@ -506,5 +591,5 @@ def main():
     VarietySlideshow().run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

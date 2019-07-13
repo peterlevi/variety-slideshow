@@ -1,21 +1,21 @@
 # -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 4 -*-
 ### BEGIN LICENSE
 # Copyright (c) 2012, Peter Levi <peterlevi@peterlevi.com>
-# This program is free software: you can redistribute it and/or modify it 
-# under the terms of the GNU General Public License version 3, as published 
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License version 3, as published
 # by the Free Software Foundation.
-# 
-# This program is distributed in the hope that it will be useful, but 
-# WITHOUT ANY WARRANTY; without even the implied warranties of 
-# MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR 
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranties of
+# MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR
 # PURPOSE.  See the GNU General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License along 
+#
+# You should have received a copy of the GNU General Public License along
 # with this program.  If not, see <http://www.gnu.org/licenses/>.
 ### END LICENSE
 
-from collections import defaultdict
 import json
+from collections import defaultdict
 
 
 class AttrDict(defaultdict):
@@ -32,7 +32,7 @@ class AttrDict(defaultdict):
             return v
 
     def merge(self, arg):
-        if hasattr(arg, 'iteritems'):
+        if hasattr(arg, "iteritems"):
             self.merge(arg.iteritems())
         else:
             for k, v in arg:
@@ -46,7 +46,9 @@ class AttrDict(defaultdict):
         if len(args) == 1:
             self.merge(args[0])
         elif len(args) > 1:
-            raise TypeError("AttrDict expected at most 1 argument that is a map, got %i" % len(args))
+            raise TypeError(
+                "AttrDict expected at most 1 argument that is a map, got %i" % len(args)
+            )
         self.merge(kwargs)
 
     def __setitem__(self, k, v):
@@ -56,9 +58,8 @@ class AttrDict(defaultdict):
     __setattr__ = __setitem__
 
 
-
 if __name__ == "__main__":
-    a = AttrDict({'a': {'b':1}})
+    a = AttrDict({"a": {"b": 1}})
     assert not bool(a.deep.inside)
     assert bool(a.a)
     assert a.a.b == 1
@@ -74,6 +75,6 @@ if __name__ == "__main__":
     assert b.x == 1
     assert b.y == 2
 
-    b.c = {'z': 3}
+    b.c = {"z": 3}
     assert b.c.z == 3
     assert not bool(b.c.dredrefre)
