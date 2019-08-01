@@ -197,6 +197,27 @@ date - sort by file date;""",
         )
 
         parser.add_option(
+            "--hide-from-taskbar",
+            action="store_true",
+            dest="hide_from_taskbar",
+            default=self.options.get("hide_from_taskbar", False),
+            help="If specified, we will instruct the window manager to not show a button for "
+            "Variety Slideshow in the taskbar or the application switcher. Some WMs might "
+            "ignore this hint.",
+        )
+
+        parser.add_option(
+            "--dont-hide-from-taskbar",
+            action="store_false",
+            dest="hide_from_taskbar",
+            default=self.options.get("hide_from_taskbar", False),
+            help="Used to reverse the effect of a previous run with --hide-from-taskbar. "
+            "If specified, we will NOT instruct the window manager to not show a button for "
+            "Variety Slideshow in the taskbar or the application switcher and will persist this as "
+            "the new default behavior.",
+        )
+
+        parser.add_option(
             "--defaults",
             action="store_true",
             dest="defaults",
@@ -419,6 +440,9 @@ date - sort by file date;""",
 
         elif self.options.mode == "undecorated":
             self.window.set_decorated(False)
+
+        if self.options.hide_from_taskbar:
+            self.window.set_skip_taskbar_hint(True)
 
         def after_show(*args):
             def f():
