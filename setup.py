@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python3
 # -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 4 -*-
 ### BEGIN LICENSE
 # Copyright (c) 2015, Peter Levi <peterlevi@peterlevi.com>
@@ -23,7 +23,11 @@ try:
     import DistUtilsExtra.auto
     from DistUtilsExtra.command.build_icons import build_icons
 except ImportError:
-    print("To build variety-slideshow you need https://launchpad.net/python-distutils-extra", file=sys.stderr)
+    print(
+        "To build variety-slideshow you need python3-distutils-extra - "
+        "https://launchpad.net/python-distutils-extra",
+        file=sys.stderr,
+    )
     sys.exit(1)
 assert DistUtilsExtra.auto.__version__ >= "2.18", "needs DistUtilsExtra.auto >= 2.18"
 
